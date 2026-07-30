@@ -45,24 +45,35 @@ info "Building against open-gpu-kernel-modules ${VERSION}"
 
 mkdir -p "${BUILD_ROOT}"
 
-if [[ ! -f "${TARBALL}" ]]; then
-    info "Downloading open-gpu-kernel-modules ${VERSION}..."
-    curl -L --fail -o "${TARBALL}.partial" "${TARBALL_URL}"
-    mv "${TARBALL}.partial" "${TARBALL}"
-    ok "Downloaded ${TARBALL}"
-else
-    ok "Using cached tarball ${TARBALL}"
+# ⚠️ 千万不要从官方下载源码！
+# 有用户反馈 NVIDIA 在官方 open-gpu-kernel-modules 源码中投毒，
+# 一旦安装官方版本会永久熔断该显卡的解锁能力（OTP/PLM 锁死）。
+# 必须使用本地已验证安全的源码树：cmp170hx-unlock/open-gpu-kernel-modules-610.43.03/
+# 下面官方下载逻辑已禁用。
+LOCAL_SRC_TREE="${SCRIPT_DIR}/../../cmp170hx-unlock/open-gpu-kernel-modules-${VERSION}"
+if [[ ! -d "${LOCAL_SRC_TREE}" ]]; then
+    # 兜底：尝试同级 cmp170hx-unlock 目录
+    LOCAL_SRC_TREE="${SCRIPT_DIR}/../cmp170hx-unlock/open-gpu-kernel-modules-${VERSION}"
 fi
+if [[ ! -d "${LOCAL_SRC_TREE}" ]]; then
+    die "未找到本地安全源码树 open-gpu-kernel-modules-${VERSION}。请确保 cmp170hx-unlock 目录与之同级。禁止从 GitHub 官方下载（投毒风险）。"
+fi
+ok "使用本地安全源码树: ${LOCAL_SRC_TREE}（已禁用官方下载）"
 
-info "Extracting sources..."
+# 官方下载逻辑已禁用（投毒风险）：
+# if [[ ! -f "${TARBALL}" ]]; then
+#     info "Downloading open-gpu-kernel-modules ${VERSION}..."
+#     curl -L --fail -o "${TARBALL}.partial" "${TARBALL_URL}"
+#     mv "${TARBALL}.partial" "${TARBALL}"
+#     ok "Downloaded ${TARBALL}"
+# else
+#     ok "Using cached tarball ${TARBALL}"
+# fi
+
+info "Copying local safe sources..."
 rm -rf "${SRC_DIR}"
-tar -xzf "${TARBALL}" -C "${BUILD_ROOT}"
-if [[ ! -d "${SRC_DIR}" ]]; then
-    extracted="$(find "${BUILD_ROOT}" -maxdepth 1 -type d -name "${SRC_NAME}*" | head -1)"
-    [[ -n "${extracted}" ]] || die "Extracted source tree not found"
-    mv "${extracted}" "${SRC_DIR}"
-fi
-ok "Sources ready: ${SRC_DIR}"
+cp -a "${LOCAL_SRC_TREE}" "${SRC_DIR}"
+ok "Sources ready: ${SRC_DIR} (from local safe copy)"
 
 info "Applying unlock patches..."
 cd "${SRC_DIR}"
